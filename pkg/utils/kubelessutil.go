@@ -26,12 +26,13 @@ import (
 	"strconv"
 	"strings"
 
+	"io/ioutil"
+
 	monitoringv1alpha1 "github.com/coreos/prometheus-operator/pkg/client/monitoring/v1alpha1"
 	"github.com/ghodss/yaml"
 	kubelessApi "github.com/kubeless/kubeless/pkg/apis/kubeless/v1beta1"
 	"github.com/kubeless/kubeless/pkg/langruntime"
 	"github.com/sirupsen/logrus"
-	"io/ioutil"
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -668,10 +669,22 @@ func EnsureFuncDeployment(client kubernetes.Interface, funcObj *kubelessApi.Func
 
 	// Add security context
 	runtimeUser := int64(1000)
-	if dpm.Spec.Template.Spec.SecurityContext == nil {
-		dpm.Spec.Template.Spec.SecurityContext = &v1.PodSecurityContext{
-			RunAsUser: &runtimeUser,
-			FSGroup:   &runtimeUser,
+	for i := range dpm.Spec.Template.Spec.InitContainers {
+		v := dpm.Spec.Template.Spec.InitContainers[i]
+		if v.SecurityContext == nil {
+			v.SecurityContext = &v1.SecurityContext{
+				RunAsUser:                &runtimeUser,
+				AllowPrivilegeEscalation: boolPtr(false),
+			}
+		}
+	}
+	for i := range dpm.Spec.Template.Spec.Containers {
+		v := dpm.Spec.Template.Spec.Containers[i]
+		if v.SecurityContext == nil {
+			v.SecurityContext = &v1.SecurityContext{
+				RunAsUser:                &runtimeUser,
+				AllowPrivilegeEscalation: boolPtr(false),
+			}
 		}
 	}
 
@@ -707,6 +720,8 @@ func EnsureFuncDeployment(client kubernetes.Interface, funcObj *kubelessApi.Func
 
 	return err
 }
+
+func boolPtr(b bool) *bool { return &b }
 
 // CreateServiceMonitor creates a Service Monitor for the given function
 func CreateServiceMonitor(smclient monitoringv1alpha1.MonitoringV1alpha1Client, funcObj *kubelessApi.Function, ns string, or []metav1.OwnerReference) error {

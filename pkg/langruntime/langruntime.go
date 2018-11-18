@@ -11,7 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -137,9 +136,8 @@ func (l *Langruntimes) GetLivenessProbeInfo(runtime string, port int) *v1.Probe 
 		InitialDelaySeconds: int32(3),
 		PeriodSeconds:       int32(30),
 		Handler: v1.Handler{
-			HTTPGet: &v1.HTTPGetAction{
-				Path: "/healthz",
-				Port: intstr.FromInt(port),
+			Exec: &v1.ExecAction{
+				Command: []string{"curl", "-f", fmt.Sprintf("http://localhost:%d/healthz", port)},
 			},
 		},
 	}
